@@ -6,11 +6,12 @@ Team Squid: Omar Barazanji and Peyton Spencer
 
 #include "STM32L1xx.h"
 
-static int row, row_out, col, col_out, counter;
+static int row, row_out, col, col_out;
 static int good, button_num;
 static int count_upper, count_lower, count_output;
 static int state = 1;
 static int count = 0;
+static int interrupts = 0;
 
 void PinSetup () {
 	RCC->AHBENR |= 0x01; // Enable GPIOA clock (bit 0)
@@ -33,7 +34,7 @@ void PinSetup () {
 	GPIOC->MODER |= 0x5555;  // out mode PC7-0
 
 	SYSCFG->EXTICR[1] &= 0x0; // Turns on EXTI1 for PA1
-	EXTI->FTSR |= 0x0002;  // Sets EXTI1 to rising edge triggered
+	EXTI->FTSR |= 0x0002;  // Sets EXTI1 to falling edge triggered
 	EXTI->PR |= 0x0002;  // clears pending status of EXTI1
 	EXTI->IMR |= 0x0002;  // disable mask for EXTI1
 	NVIC_EnableIRQ(EXTI1_IRQn); // NVIC enable IRQ
@@ -45,6 +46,7 @@ void PinSetup () {
 
 void EXTI1_IRQHandler() {  // increasing button (1)
 	__disable_irq();  // CPU disable IRQ
+	interrupts++;
 	good = 0;
 	for (col=0; col < 4; col++) {
 		GPIOB->ODR |= 0xF0;
@@ -68,25 +70,30 @@ void EXTI1_IRQHandler() {  // increasing button (1)
 		}
 	}
 		for (int i=0; i<25600; i++) {  //  delay
-	}
+			for (int j=0; j<1; j++) {
+			}
+		}	
 	if (good)	{  // only output if successful
 		button_num = ((row_out*4)+col_out);
 			if (button_num == 0) {
-				state ^= state;
+				state ^= 1;
 				if (state == 0) {
 					TIM10->CR1 &= ~TIM_CR1_CEN; //disable counter
 				}
 				if (state == 1) {
-					TIM10->CR1 &= TIM_CR1_CEN; //enable counter
+					TIM10->CR1 |= TIM_CR1_CEN; //enable counter
 				}
 			}
-			if (button_num == 1 && ~state) {
+			if (button_num && !state) {
 				TIM10->CNT = 0;
+				GPIOC->ODR &= 0x0;
+				count = 0;
 			}
 	}
 	GPIOB->ODR &= 0x00;  // Drives output PB7-4 (col) low.
 	for (int i=0; i<1600; i++) {  // debounce
 	}
+
 	EXTI->PR |= 0x0002;  // clears pending status of EXTI1
 	NVIC_ClearPendingIRQ(EXTI1_IRQn);  // clear NVIC pending
 	NVIC_EnableIRQ(EXTI1_IRQn);  // NVIC enable IRQ
@@ -119,10 +126,15 @@ int main(void) {
 	PinSetup();
 	col = 0;
 	row = 0;
-	counter = 0;
 	good = 0;
 	GPIOB->ODR &= 0x0F;  // Drives column lines low.
 	while (1) {  // main loop
-
+		if (interrupts > 0) {
+			__disable_irq();
+			for (int i = 0; i < 4000; i++) {
+			}
+			interrupts = 0;
+			__enable_irq();
+		}
 	}
 }
