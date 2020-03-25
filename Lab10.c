@@ -45,6 +45,7 @@ void TimerSetup()													//Configure Timer 11 for 1kHz Sampling
 	TIM11->DIER &= 0;
 	TIM11->DIER |= 0x1;  	// TIM11 CC1IE interrput enable
 	TIM11->CR1 |= TIM_CR1_CEN;						//Enable timer counting
+	TIM11 -> SR &= ~TIM_SR_UIF;
 	NVIC_EnableIRQ(TIM11_IRQn);							//Enable TIM11 NVIC interrupts
 	NVIC_ClearPendingIRQ(TIM11_IRQn);				//Clear TIM11 NVIC pending interrupts
 }
@@ -52,7 +53,7 @@ void TimerSetup()													//Configure Timer 11 for 1kHz Sampling
 //Interrupt handlers
 void TIM11_IRQHandler()
 {
-	ADC1->CR2 |= 1;           							//Start conversion
+	ADC1->CR2 |= ADC_CR2_SWSTART;           							//Start conversion
 	//while( ADC1->CR2 &= (1 << 10) == 0);	  //Wait for conversion to complete
 	while( ADC1->SR & 0x2 == 0);	  //Wait for conversion to complete
 
@@ -68,7 +69,7 @@ void TIM11_IRQHandler()
 		adc_index = 0;
 		adc_out = adc_sum/100;							//Write the average of 100 samples
 	}
-																					//Clear TIM11 pending flag
+	TIM11 -> SR &= ~TIM_SR_UIF;																				//Clear TIM11 pending flag
 	NVIC_ClearPendingIRQ(TIM11_IRQn);		 		//Clear TIM11 NVIC pending interrupts
 }
 
